@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInternal: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5580cb3b83af52f40acc96d03528a292, type: 3}
+  m_Name: VeronicaJobs
+  m_EditorClassIdentifier: 
+  faceName: Veronica Jobs
+  job: Politician
+  artwork: {fileID: 21300002, guid: b60f53a42a355404092e52d0be025d7a, type: 3}
+  agression: 0.29
+  ambition: -0.24
+  integrity: 0.11
+  introspection: -0.24
+  leadership: 0.13
+  luck: -0.24
+  isAlive: 1
