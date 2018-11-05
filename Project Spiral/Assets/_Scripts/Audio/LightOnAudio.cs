@@ -5,6 +5,7 @@ using UnityEngine;
 
 public class LightOnAudio : MonoBehaviour 
 {
+    public AudioPeer audioPeer;
     public int band;
     public float minIntensity;
     public float maxIntensity;
@@ -17,6 +18,6 @@ public class LightOnAudio : MonoBehaviour
 
 	void Update () 
 	{
-		audioLight.intensity = (AudioPeer.audioBandBuffers[band] * (maxIntensity - minIntensity)) + minIntensity;
+		audioLight.intensity = (audioPeer.audioBandBuffers[band] * (maxIntensity - minIntensity)) + minIntensity;
 	}
 }

@@ -1,36 +1,134 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Audio;
 
 [RequireComponent (typeof (AudioSource))]
 public class AudioPeer : MonoBehaviour 
 {
     AudioSource audioSource;
-    public static float[] samples = new float[512];
-    public static float[] freqBands = new float[8];
+
+    //Microphone input
+    public AudioClip audioClip;
+    public string selectedDevice;
+    public AudioMixerGroup mixerGroupMicrophone;
+    public AudioMixerGroup mixerGroupMaster;
+
+    public bool useMicrophone;
+
+    float[] samplesLeft = new float[512];
+    float[] samplesRight = new float[512];
+
+    float[] freqBands = new float[8];
 
     //Band buffer will hold values in order to make a smoother shrink on the visualization bars
     //every time the freqBands value for a given frequency band goes above bandBuffer for that frequency band
     //band buffer is set equal to the value of freqBands for that frequency band
     // if the freqBands Value is lower that bandBuffer, bandBuffer will shrink slowly towards that value
-    public static float[] bandBuffers = new float[8];
-    public static float[] bufferDecreases = new float[8];
-
+    float[] bandBuffers = new float[8];
+    float[] bufferDecreases = new float[8];
     float[] freqBandsHighest = new float[8];
-    public static float[] audioBands = new float[8];
-    public static float[] audioBandBuffers = new float[8];
+
+    //Values for Audio 64 bands
+    float[] freqBands64 = new float[64];
+    float[] bandBuffers64 = new float[64];
+    float[] bufferDecreases64 = new float[64];
+    float[] freqBandsHighest64 = new float[64];
+
+    [HideInInspector]
+    public float[] audioBands;
+    [HideInInspector]
+    public float[] audioBandBuffers;
+
+    [HideInInspector]
+    public float[] audioBands64;
+    [HideInInspector]
+    public float[] audioBandBuffers64;
+
+    [HideInInspector]
+    public float amplitude;
+    [HideInInspector]
+    public float amplitudeBuffer;
+
+    float amplitudeHighest;
+    public float audioProfile;
+
+    public enum Channel { Stereo, Left, Right};
+    public Channel channel = new Channel();
 
     void Start () 
 	{
+        audioBands = new float[8];
+        audioBandBuffers = new float[8];
+
+        audioBands64 = new float[64];
+        audioBandBuffers64 = new float[64];
+
         audioSource = GetComponent<AudioSource>();
-	}
+        AudioProfile(audioProfile);
+
+        //Microphone Input
+
+        if (useMicrophone)
+        {
+            if (Microphone.devices.Length > 0)
+            {
+
+                selectedDevice = Microphone.devices[0].ToString();
+                audioSource.outputAudioMixerGroup = mixerGroupMicrophone;
+                audioSource.clip = Microphone.Start(selectedDevice, true, 10, AudioSettings.outputSampleRate);
+            }
+            else
+            {
+                useMicrophone = false;
+            }
+        }
+        else if (!useMicrophone)
+        {
+            audioSource.outputAudioMixerGroup = mixerGroupMaster;
+            audioSource.clip = audioClip;
+        }
+
+        audioSource.Play();
+    }
 
 	void Update () 
 	{
         GetSpectrumAudioSource();
         MakeFrequencyBands();
+        MakeFrequencyBands64();
         BandBuffer();
+        BandBuffer64();
         CreateAudioBands();
+        CreateAudioBands64();
+        GetAmplitude();
+    }
+
+    void AudioProfile(float audioProfile)
+    {
+        for (int i = 0; i < freqBands.Length; i++)
+        {
+            freqBandsHighest[i] = 0;
+        }
+    }
+
+    void GetAmplitude()
+    {
+        float currentAmplitude = 0f;
+        float currentAmplitudeBuffer = 0f;
+
+        for (int i = 0; i < audioBands.Length; i++)
+        {
+            currentAmplitude += audioBands[i];
+            currentAmplitudeBuffer += audioBandBuffers[i];
+        }
+
+        if (currentAmplitude > amplitudeHighest)
+        {
+            amplitudeHighest = currentAmplitude;
+        }
+        amplitude = currentAmplitude/amplitudeHighest;
+        amplitudeBuffer = currentAmplitudeBuffer/ amplitudeHighest;
     }
 
     void CreateAudioBands()
@@ -46,9 +144,23 @@ public class AudioPeer : MonoBehaviour
     }
     }
 
+    void CreateAudioBands64()
+    {
+        for (int i = 0; i < freqBands64.Length; i++)
+        {
+            if (freqBands64[i] > freqBandsHighest64[i])
+            {
+                freqBandsHighest64[i] = freqBands64[i];
+            }
+            audioBands64[i] = (freqBands64[i] / freqBandsHighest64[i]);
+            audioBandBuffers64[i] = (bandBuffers64[i] / freqBandsHighest64[i]);
+        }
+    }
+
     void GetSpectrumAudioSource()
     {
-        audioSource.GetSpectrumData(samples,0, FFTWindow.Blackman);
+        audioSource.GetSpectrumData(samplesLeft,0, FFTWindow.Blackman);
+        audioSource.GetSpectrumData(samplesRight, 1, FFTWindow.Blackman);
     }
 
     void BandBuffer()
@@ -68,9 +180,25 @@ public class AudioPeer : MonoBehaviour
         }
     }
 
+    void BandBuffer64()
+    {
+        for (int g = 0; g < bufferDecreases64.Length; g++)
+        {
+            if ((freqBands64[g] > bandBuffers64[g]))
+            {
+                bandBuffers64[g] = freqBands64[g];
+                bufferDecreases64[g] = 0.005f;
+            }
+            if ((freqBands64[g] < bandBuffers64[g]))
+            {
+                bandBuffers64[g] -= bufferDecreases64[g];
+                bufferDecreases64[g] *= 1.2f;
+            }
+        }
+    }
+
     void MakeFrequencyBands()
     {
-        
         //to determine the number of frequency Bands
         //devide the Hz of the song by the number of instantiated objects in the visualizer
         //  example: 22050Hz / 512 Cubes = 43Hz per sample
@@ -112,12 +240,83 @@ public class AudioPeer : MonoBehaviour
             }
             for (int j = 0; j < sampleCount; j++)
             {
-                average += samples[count] * (count + 1);
-                count++;
+
+                if (channel == Channel.Stereo)
+                {
+                    average += samplesLeft[count] + samplesRight[count] * (count + 1);
+                    count++;
+                }
+                else if (channel == Channel.Left)
+                {
+                    average += samplesLeft[count] * (count + 1);
+                    count++;
+                }
+                else if (channel == Channel.Right)
+                {
+                    average += samplesRight[count] * (count + 1);
+                    count++;
+                }
             }
 
             average /= count;
             freqBands[i] = average * 10;
+        }
+    }
+
+    void MakeFrequencyBands64()
+    {
+
+            //0-15 = 1 sample =     16
+            //16-31 = 2 samples =   32
+            //32-39 = 4 samples =   32
+            //40-47 = 6 samples =   48
+            //48-55 = 16 samples = 128
+            //56-63 = 32 samples = 256
+            //                     ---
+            //                     512 samples
+
+        int count = 0;
+        int sampleCount = 1;
+        int power = 0;
+
+        for (int i = 0; i < freqBands64.Length; i++)
+        {
+            float average = 0;
+
+            if (i == 16 || i == 32 || i == 40 || i == 48 || i == 56)
+            {
+                power++;
+                sampleCount = (int)Mathf.Pow(2, power);
+
+                if (power == 3)
+                {
+                    sampleCount -= 2;   //because the 40-47 band has 6 samples instead of 8 as it would if it had a true power relationship
+                }
+
+            }
+            for (int j = 0; j < sampleCount; j++)
+            {
+
+                if (channel == Channel.Stereo)
+                {
+                    average += samplesLeft[count] + samplesRight[count] * (count + 1);
+                    count++;
+                }
+                else if (channel == Channel.Left)
+                {
+                    average += samplesLeft[count] * (count + 1);
+                    count++;
+                }
+                else if (channel == Channel.Right)
+                {
+                    average += samplesRight[count] * (count + 1);
+                    count++;
+                }
+            }
+
+            average /= count;
+            freqBands64[i] = average * 8;
+
         }
     }
 }

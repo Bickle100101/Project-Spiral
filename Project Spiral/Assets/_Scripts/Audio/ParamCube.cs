@@ -5,6 +5,7 @@ using UnityEngine;
 
 public class ParamCube : MonoBehaviour 
 {
+    public AudioPeer audioPeer;
     public int band;
     public float startScale;
     public float maxScale;
@@ -20,15 +21,15 @@ public class ParamCube : MonoBehaviour
 	{
         if (useBuffer)
         {
-            transform.localScale = new Vector3(transform.localScale.x, (AudioPeer.audioBandBuffers[band] * maxScale) + startScale, transform.localScale.z);
-            Color color = new Color(AudioPeer.audioBandBuffers[band], AudioPeer.audioBandBuffers[band], AudioPeer.audioBandBuffers[band]);
-            material.SetColor("EmissionColor", color);
+            transform.localScale = new Vector3(transform.localScale.x, (audioPeer.audioBandBuffers[band] * maxScale) + startScale, transform.localScale.z);
+            Color color = new Color(audioPeer.audioBandBuffers[band], audioPeer.audioBandBuffers[band], audioPeer.audioBandBuffers[band]);
+            material.SetColor("EmissionColor", color* audioPeer.audioBands[0]);
         }
         if (!useBuffer)
         {
-            transform.localScale = new Vector3(transform.localScale.x, (AudioPeer.audioBands[band] * maxScale) + startScale, transform.localScale.z);
-            Color color = new Color(AudioPeer.audioBands[band], AudioPeer.audioBands[band], AudioPeer.audioBands[band]);
-            material.SetColor("EmissionColor", color);
+            transform.localScale = new Vector3(transform.localScale.x, (audioPeer.audioBands[band] * maxScale) + startScale, transform.localScale.z);
+            Color color = new Color(audioPeer.audioBands[band], audioPeer.audioBands[band], audioPeer.audioBands[band]);
+            material.SetColor("EmissionColor", color * audioPeer.audioBands[0]);
         }
 
     }
